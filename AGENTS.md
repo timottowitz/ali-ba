@@ -1,0 +1,124 @@
+Agent guide: TanStack Start + Turborepo + Convex + MCP
+
+Scope
+- This guide applies to the entire repository at this path and all subfolders.
+- It tells Codex (and other agents) exactly how to run, build, and extend this stack.
+
+Stack overview
+- Frontend: TanStack Start (SSR) with @tanstack/react-router and Vite.
+- Monorepo: Turborepo, configured via turbo.json.
+- Backend: Convex functions in ./convex, served by convex dev and deployed via Convex Cloud.
+- Auth: @convex-dev/auth integrated in Convex and React client.
+- MCP: A Convex MCP server is available for tool-driven automation.
+
+Prerequisites
+- Node.js 20+ (22.x works). Use system npm in this repo (package-lock.json present).
+- Convex CLI installed globally: npm i -g convex
+- Optional: Turbo CLI for orchestrated runs: npm i -g turbo
+
+Environment
+- Local variables live in .env.local (already present):
+  - CONVEX_DEPLOY_KEY=...
+  - CONVEX_DEPLOYMENT=dev:...
+  - VITE_CONVEX_URL=https://<deployment>.convex.cloud
+- Some Convex files reference process.env.CONVEX_SITE_URL; set as needed for auth callbacks.
+
+Install
+- From repo root:
+  - npm ci
+
+Run (developer mode)
+- Simple: npm run dev
+  - Starts Vite dev server (TanStack Start) and Convex dev concurrently.
+- Individually:
+  - Frontend: npm run dev:frontend (Vite + TanStack Start)
+  - Backend: npm run dev:backend (convex dev)
+- With Turborepo (optional):
+  - npx turbo run dev
+
+Build
+- Frontend build: npm run build (Vite build)
+- Types and codegen: convex dev --once or convex codegen runs generate under convex/_generated
+
+Convex notes
+- Add queries/mutations in ./convex/*.ts using query(...) and mutation(...).
+- Client imports use api from convex/_generated/api in the frontend.
+- Regenerate types after changes: convex dev --once (or keep convex dev running).
+
+TanStack Start notes
+- App lives under apps/web/app with file-based routes in app/routes.
+- Router is configured in apps/web/app/router.tsx. Add new routes using createFileRoute.
+- SSR entrypoints: apps/web/app/server.tsx and apps/web/app/client.tsx.
+
+MCP integration
+- Project-level MCP config exists at ./.mcp.json (gitignored). It starts the Convex MCP server with the project’s deployment/env.
+- Tools exposed by the MCP server:
+  - ping: connectivity check
+  - convex_call: call any Convex query or mutation by name with JSON args
+- Example calls (via MCP Inspector):
+  - Query products: { operation: "query", name: "products:searchProducts", args: { query: "plastic", limit: 5 } }
+  - Query suppliers: { operation: "query", name: "suppliers:searchSuppliers", args: { query: "textile", limit: 10 } }
+
+Using Codex CLI in this repo
+- Recommended defaults:
+  - Workdir: codex -C .
+  - Sandbox: --sandbox workspace-write
+  - Approvals: -a on-request (or --full-auto for fast iteration)
+- Model profiles (if Codex supports Anthropic provider):
+  - claude_code: -p claude_code (Claude 3.5 Sonnet) for coding tasks
+  - claude_opus: -p claude_opus (Claude 3 Opus) for reasoning-heavy tasks
+- Examples:
+  - Start a coding session focused on this repo: codex -C . -p claude_code --sandbox workspace-write -a on-request
+  - Run a one-off command: codex exec -C . -m o3-mini --skip-git-repo-check "List Convex functions and add a mutation to suppliers.ts"
+
+Agent conventions (follow these when editing)
+- Keep changes minimal and focused; don’t refactor unrelated areas.
+- When adding Convex functions, update types via convex dev --once and verify imports to convex/_generated/api.
+- When adding routes, prefer file-based routes under apps/web/app/routes.
+- Prefer npm over pnpm/yarn in this repo unless explicitly instructed.
+- Never commit secrets. .mcp.json is gitignored. Keep .env.local local-only.
+
+Common issues & fixes
+- Convex codegen missing: run convex dev --once and re-run build/dev.
+- TanStack Start routes not discovered: ensure file lives under apps/web/app/routes and uses createFileRoute.
+- MCP server won’t start: ensure CONVEX_DEPLOYMENT_URL and CONVEX_DEPLOY_KEY are set in the environment that launches the MCP server.
+
+Deployment (overview)
+- Convex: convex deploy (requires proper CONVEX_DEPLOY_KEY).
+- Frontend: build artifacts via Vite; deploy per your host’s SSR guide (TanStack Start + Node adapter).
+
+Search System
+- Overview
+  - Keyword search (Convex search indexes) + filter-first pagination for core UX.
+  - Semantic search (scaffolded) via `convex/search.ts` with an embeddings table; ZeroEntropy is present as a dependency but not yet wired.
+
+- Keyword search (Convex)
+  - Root products: search index `search_title` on `products.title.en` with `filterFields` for common filters.
+    - Queries: `products.listProductsPaged`, `products.searchProductsPaged`.
+    - Accepted filters (applied per page): `minPrice`, `maxPrice`, `minMOQ`, `maxMOQ`, `minLeadTimeSample`, `maxLeadTimeSample`, `verifiedOnly`, `tradeAssuranceOnly`, `minResponseRate`.
+  - Shared package products: legacy index `search_products` on `name` (used by legacy UI only). New UI should call root queries above.
+  - Suppliers: `suppliers.searchSuppliers` uses field filters (country/state/verification/badges/languages/certifications/minResponseRate). No search index is required yet; add one if full‑text over companyName is needed.
+
+- Semantic search (scaffold)
+  - Data model: `searchEmbeddings` table with `(entityType, entityId, embedding[float64], language, updatedAt)`.
+  - API: `search.upsertProductEmbedding` (builds a placeholder vector) and `search.semanticSearchProducts` (token‑overlap scoring).
+  - ZeroEntropy: listed in dependencies but not integrated yet. When wiring:
+    - Do not import ZeroEntropy in the browser; compute embeddings server‑side (Convex functions) to avoid key exposure.
+    - Replace the placeholder embedding generator in `search.upsertProductEmbedding` with ZeroEntropy embedding calls; persist vectors in `searchEmbeddings`.
+    - Implement a semantic retrieval function (e.g., cosine/ANN) and fuse with keyword/filters (BM25+vector hybrid if desired).
+    - Add background jobs/hooks to upsert embeddings on product create/update; expose a reindex admin function.
+
+- Filters & pagination rules
+  - Paged endpoints must keep Convex paginate shape: `{ page, isDone, continueCursor }`.
+  - Prefer indexed `withSearchIndex(...).eq(...)` and `.withIndex` for coarse filtering; apply fine‑grained filters on the page, then paginate forward.
+  - Keep parameter names stable across API and UI (see filters listed above). For suppliers use: `verificationStatus[]`, `languages[]`, `certifications[]`, `state`, `minResponseRate`.
+
+- Naming & structure
+  - Search index names: `search_<entity>` (e.g., `search_title`, `search_products`).
+  - Paged queries: `list<Entity>Paged`, `search<Entity>Paged`.
+  - Keep root (./convex) as the source of truth for search endpoints; migrate legacy shared endpoints gradually.
+
+- When adding search features
+  - Update the relevant Convex schema to include searchIndex/filterFields.
+  - Extend paged queries to accept new filters; surface them in UI components (ProductsPage/SuppliersPage) with minimal, accessible controls.
+  - If integrating semantic search, add a fused scorer (semantic + keyword) and keep filters deterministic.

@@ -1,0 +1,312 @@
+import { defineSchema, defineTable } from "convex/server";
+import { v } from "convex/values";
+import { authTables } from "@convex-dev/auth/server";
+
+const applicationTables = {
+  // Enhanced Categories with multilingual support
+  categories: defineTable({
+    name: v.object({
+      en: v.string(),
+      es: v.optional(v.string()),
+    }),
+    description: v.optional(v.object({
+      en: v.optional(v.string()),
+      es: v.optional(v.string()),
+    })),
+    parentId: v.optional(v.id("categories")),
+    slug: v.optional(v.string()),
+    image: v.optional(v.id("_storage")),
+  }).index("by_parent", ["parentId"]),
+
+  // Enhanced Suppliers (Companies) with verification and rating
+  suppliers: defineTable({
+    userId: v.id("users"),
+    companyName: v.string(),
+    description: v.string(),
+    location: v.string(),
+    contactEmail: v.string(),
+    contactPhone: v.optional(v.string()),
+    website: v.optional(v.string()),
+    yearEstablished: v.optional(v.number()),
+    employeeCount: v.optional(v.string()),
+    businessType: v.optional(v.union(
+      v.literal("manufacturer"),
+      v.literal("trading_company"),
+      v.literal("wholesaler"),
+      v.literal("distributor"),
+      v.literal("service_provider")
+    )),
+    mainProducts: v.optional(v.array(v.string())),
+    logo: v.optional(v.id("_storage")),
+    verificationStatus: v.union(
+      v.literal("unverified"),
+      v.literal("pending"),
+      v.literal("verified"),
+      v.literal("rejected")
+    ),
+    rating: v.optional(v.number()),
+    reviewCount: v.optional(v.number()),
+    certifications: v.optional(v.array(v.id("documents"))),
+    userIds: v.optional(v.array(v.id("users"))),
+    responseRate: v.optional(v.number()), // New field
+    responseTime: v.optional(v.number()), // New field (in hours)
+    onTimeDeliveryRate: v.optional(v.number()), // New field
+  })
+    .index("by_user", ["userId"])
+    .index("by_verification_status", ["verificationStatus"])
+    .index("by_rating", ["rating"]),
+
+  // Enhanced Products with multilingual support, pricing tiers, and inventory
+  products: defineTable({
+    supplierId: v.id("suppliers"),
+    title: v.object({
+      en: v.string(),
+      es: v.optional(v.string()),
+    }),
+    description: v.object({
+      en: v.string(),
+      es: v.optional(v.string()),
+    }),
+    categoryId: v.id("categories"),
+    pricingTiers: v.array(v.object({
+      minQuantity: v.number(),
+      price: v.number(),
+      currency: v.string(),
+    })),
+    minOrderQuantity: v.number(),
+    inventoryCount: v.number(),
+    images: v.optional(v.array(v.id("_storage"))),
+    specifications: v.optional(v.object({
+      material: v.optional(v.string()),
+      color: v.optional(v.string()),
+      size: v.optional(v.string()),
+      weight: v.optional(v.string()),
+      brand: v.optional(v.string()),
+      model: v.optional(v.string()),
+      origin: v.optional(v.string()),
+    })),
+    tags: v.optional(v.array(v.string())),
+    status: v.union(
+      v.literal("active"),
+      v.literal("out_of_stock"),
+      v.literal("discontinued"),
+      v.literal("removed")
+    ),
+    rating: v.optional(v.number()),
+    reviewCount: v.optional(v.number()),
+    updatedAt: v.optional(v.number()),
+    leadTime: v.optional(v.string()),
+    productionCapacity: v.optional(v.string()),
+    incoterms: v.optional(v.array(v.string())),
+  })
+    .index("by_supplier", ["supplierId"])
+    .index("by_category", ["categoryId"])
+    .index("by_status", ["status"])
+    .index("by_rating", ["rating"]),
+
+  // Conversations for messaging system
+  conversations: defineTable({
+    buyerId: v.id("users"),
+    companyId: v.id("suppliers"),
+    subject: v.optional(v.string()),
+    participantUserIds: v.array(v.id("users")),
+    lastMessageTime: v.number(),
+    status: v.union(
+      v.literal("open"),
+      v.literal("closed"),
+      v.literal("archived")
+    ),
+  })
+    .index("by_buyer", ["buyerId"])
+    .index("by_company", ["companyId"])
+    .index("by_last_message_time", ["lastMessageTime"]),
+
+  // Messages within conversations
+  messages: defineTable({
+    conversationId: v.id("conversations"),
+    senderId: v.id("users"),
+    senderRole: v.optional(v.union(v.literal("buyer"), v.literal("supplier"))),
+    body: v.string(),
+    timestamp: v.number(),
+  }).index("by_conversation", ["conversationId"]),
+
+  // Document uploads (certifications, files)
+  documents: defineTable({
+    ownerType: v.union(v.literal("company"), v.literal("user"), v.literal("product")),
+    ownerId: v.string(), // Flexible ID reference
+    fileId: v.id("_storage"),
+    fileName: v.string(),
+    fileType: v.string(),
+    documentType: v.optional(v.union(
+      v.literal("business_license"),
+      v.literal("tax_certificate"),
+      v.literal("quality_certification"),
+      v.literal("product_brochure"),
+      v.literal("other")
+    )),
+    uploadedBy: v.id("users"),
+    verifiedStatus: v.optional(v.union(
+      v.literal("pending_review"),
+      v.literal("approved"),
+      v.literal("rejected")
+    )),
+  })
+    .index("by_owner", ["ownerType", "ownerId"])
+    .index("by_document_type", ["documentType"])
+    .index("by_uploaded_by", ["uploadedBy"]),
+
+  // Company verification requests
+  verificationRequests: defineTable({
+    companyId: v.id("suppliers"),
+    requestedBy: v.id("users"),
+    documents: v.array(v.id("documents")),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("in_review"),
+      v.literal("approved"),
+      v.literal("rejected")
+    ),
+    reviewedAt: v.optional(v.number()),
+    reviewedBy: v.optional(v.id("users")),
+    adminComments: v.optional(v.string()),
+    verificationLevel: v.optional(v.string()),
+  })
+    .index("by_status", ["status"])
+    .index("by_company", ["companyId"])
+    .index("by_reviewer", ["reviewedBy"]),
+
+  // Product reviews
+  productReviews: defineTable({
+    productId: v.id("products"),
+    reviewerId: v.id("users"),
+    rating: v.number(),
+    comment: v.optional(v.string()),
+    language: v.optional(v.string()),
+    visibility: v.union(v.literal("public"), v.literal("hidden")),
+  })
+    .index("by_product", ["productId"])
+    .index("by_reviewer", ["reviewerId"])
+    .index("by_visibility", ["visibility"]),
+
+  // Company reviews
+  companyReviews: defineTable({
+    companyId: v.id("suppliers"),
+    reviewerId: v.id("users"),
+    rating: v.number(),
+    comment: v.optional(v.string()),
+    visibility: v.union(v.literal("public"), v.literal("hidden")),
+  })
+    .index("by_company", ["companyId"])
+    .index("by_reviewer", ["reviewerId"])
+    .index("by_visibility", ["visibility"]),
+
+  // Admin moderation logs
+  moderationLogs: defineTable({
+    adminId: v.id("users"),
+    actionType: v.union(
+      v.literal("VERIFY_COMPANY"),
+      v.literal("REJECT_COMPANY"),
+      v.literal("DELETE_PRODUCT"),
+      v.literal("DISABLE_USER"),
+      v.literal("HIDE_REVIEW"),
+      v.literal("REMOVE_MESSAGE"),
+      v.literal("UPDATE_CATEGORY"),
+      v.literal("BAN_USER")
+    ),
+    targetType: v.union(
+      v.literal("company"),
+      v.literal("product"),
+      v.literal("user"),
+      v.literal("productReview"),
+      v.literal("companyReview"),
+      v.literal("message"),
+      v.literal("category")
+    ),
+    targetId: v.string(),
+    details: v.optional(v.string()),
+    previousValues: v.optional(v.any()),
+    newValues: v.optional(v.any()),
+  })
+    .index("by_admin", ["adminId"])
+    .index("by_target", ["targetType", "targetId"])
+    .index("by_action_type", ["actionType"]),
+
+  // Enhanced inquiries (keeping existing for compatibility)
+  inquiries: defineTable({
+    productId: v.id("products"),
+    userId: v.id("users"),
+    supplierId: v.id("suppliers"),
+    message: v.string(),
+    quantity: v.number(),
+    contactEmail: v.string(),
+    contactName: v.string(),
+    contactPhone: v.optional(v.string()),
+    status: v.union(v.literal("pending"), v.literal("responded"), v.literal("closed")),
+    response: v.optional(v.string()),
+    respondedAt: v.optional(v.number()),
+  })
+    .index("by_user", ["userId"])
+    .index("by_supplier", ["supplierId"])
+    .index("by_product", ["productId"])
+    .index("by_status", ["status"]),
+
+  // Favorites (keeping existing)
+  favorites: defineTable({
+    userId: v.id("users"),
+    productId: v.id("products"),
+  })
+    .index("by_user", ["userId"])
+    .index("by_product", ["productId"])
+    .index("by_user_and_product", ["userId", "productId"]),
+
+  // RFQs (Request for Quotation)
+  rfqs: defineTable({
+    buyerId: v.id("users"),
+    title: v.string(),
+    description: v.string(),
+    categoryId: v.id("categories"),
+    quantity: v.number(),
+    targetPrice: v.optional(v.number()),
+    deliveryDate: v.optional(v.string()),
+    attachments: v.optional(v.array(v.id("_storage"))),
+    status: v.union(v.literal("open"), v.literal("closed"), v.literal("archived")),
+  }).index("by_buyer", ["buyerId"]),
+
+  // Quotes from suppliers for RFQs
+  quotes: defineTable({
+    rfqId: v.id("rfqs"),
+    supplierId: v.id("suppliers"),
+    price: v.number(),
+    deliveryTime: v.string(),
+    notes: v.optional(v.string()),
+    status: v.union(v.literal("pending"), v.literal("accepted"), v.literal("rejected")),
+  }).index("by_rfq", ["rfqId"]).index("by_supplier", ["supplierId"]),
+
+  // Secure Orders (Trade Assurance)
+  orders: defineTable({
+    buyerId: v.id("users"),
+    supplierId: v.id("suppliers"),
+    productId: v.id("products"),
+    quoteId: v.optional(v.id("quotes")),
+    quantity: v.number(),
+    totalPrice: v.number(),
+    currency: v.string(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("paid"),
+      v.literal("shipped"),
+      v.literal("delivered"),
+      v.literal("disputed"),
+      v.literal("completed"),
+      v.literal("cancelled")
+    ),
+    paymentMilestones: v.array(v.object({ amount: v.number(), dueDate: v.string(), status: v.string() })),
+    qcCriteria: v.optional(v.string()),
+    shippingDetails: v.optional(v.object({ address: v.string(), method: v.string(), tracking: v.string() })),
+  }).index("by_buyer", ["buyerId"]).index("by_supplier", ["supplierId"]),
+};
+
+export default defineSchema({
+  ...authTables,
+  ...applicationTables,
+});

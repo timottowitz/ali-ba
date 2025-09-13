@@ -1,0 +1,16 @@
+import { Header } from './Header'
+import { FavoritesList } from './FavoritesList'
+
+export function FavoritesPage() {
+  return (
+    <div className="min-h-screen flex flex-col bg-gray-50">
+      <Header activeTab="favorites" onTabChange={() => {}} />
+      
+      <main className="flex-1">
+        <div className="max-w-7xl mx-auto px-4 py-6">
+          <FavoritesList />
+        </div>
+      </main>
+    </div>
+  )
+}

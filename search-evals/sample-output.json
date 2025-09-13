@@ -1,0 +1,11 @@
+{
+  "summary": {
+    "products": {"avgNDCG10": 0.42, "avgRecall50": 0.66, "avgMRR": 0.37, "queries": 2},
+    "suppliers": {"avgNDCG10": 0.51, "avgRecall50": 0.71, "avgMRR": 0.45, "queries": 2}
+  },
+  "perQuery": [
+    {"type":"product","query":"plastic water bottle","keyword":{"ndcg10":0.2,"recall50":0.4,"mrr":0.2},"dense":{"ndcg10":0.3,"recall50":0.5,"mrr":0.25},"hybrid":{"ndcg10":0.35,"recall50":0.55,"mrr":0.3},"hybrid_rerank":{"ndcg10":0.45,"recall50":0.65,"mrr":0.4}},
+    {"type":"supplier","query":"textile manufacturer","keyword":{"ndcg10":0.25,"recall50":0.45,"mrr":0.22},"dense":{"ndcg10":0.4,"recall50":0.6,"mrr":0.35},"hybrid":{"ndcg10":0.48,"recall50":0.68,"mrr":0.42},"hybrid_rerank":{"ndcg10":0.57,"recall50":0.75,"mrr":0.5}}
+  ]
+}
+

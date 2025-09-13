@@ -1,0 +1,11 @@
+{
+  "products": [
+    { "query": "plastic water bottle", "categoryId": null, "relevantIds": ["<productId1>", "<productId2>"] },
+    { "query": "custom t shirts", "categoryId": null, "relevantIds": ["<productId3>"] }
+  ],
+  "suppliers": [
+    { "query": "textile manufacturer", "country": "MX", "relevantIds": ["<supplierId1>"] },
+    { "query": "electronics assembly", "country": "US", "relevantIds": ["<supplierId2>", "<supplierId3>"] }
+  ]
+}
+
