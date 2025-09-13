@@ -12,8 +12,8 @@ Highlights
 
 Dev
 - npm ci
-- npx convex dev --once
-- npm run dev
+- npm run dev (starts Vite + Convex with PnP disabled)
+- If you prefer to run Convex once: npx convex dev --once
 
 Seeding
 - Open /admin/seed-demo and click “Run Seeding”
