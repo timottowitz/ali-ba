@@ -1,29 +1,22 @@
-# Alibaba.com Clone with Convex Backend
-  
-This is a project built with [Chef](https://chef.convex.dev) using [Convex](https://convex.dev) as its backend.
- You can find docs about Chef with useful information like how to deploy to production [here](https://docs.convex.dev/chef).
-  
-This project is connected to the Convex deployment named [`befitting-narwhal-27`](https://dashboard.convex.dev/d/befitting-narwhal-27).
-  
-## Project structure
-  
-The frontend code is in the `app` directory and is built with [Vite](https://vitejs.dev/).
-  
-The backend code is in the `convex` directory.
-  
-`npm run dev` will start the frontend and backend servers.
+# ali-ba — Alibaba.com Clone with Convex Backend
 
-## App authentication
+This project implements a product/supplier marketplace with Convex backend and Vite/TanStack frontend.
 
-Chef apps use [Convex Auth](https://auth.convex.dev/) with Anonymous auth for easy sign in. You may wish to change this before deploying your app.
+Highlights
+- Chunk-based semantic search (Phase 3) with parent aggregation
+- Hybrid fusion + trust boosts (Phase 4)
+- Optional reranking with timeout/fallback (Phase 5)
+- Eval harness + CSV/CI smoke tools (Phase 6)
+- Demo seeding: Sonora screw manufacturer + three screw products
+- “Why?” snippet badge showing top matching chunk
 
-## Developing and deploying your app
+Dev
+- npm ci
+- npx convex dev --once
+- npm run dev
 
-Check out the [Convex docs](https://docs.convex.dev/) for more information on how to develop with Convex.
-* If you're new to Convex, the [Overview](https://docs.convex.dev/understanding/) is a good place to start
-* Check out the [Hosting and Deployment](https://docs.convex.dev/production/) docs for how to deploy your app
-* Read the [Best Practices](https://docs.convex.dev/understanding/best-practices/) guide for tips on how to improve you app further
+Seeding
+- Open /admin/seed-demo and click “Run Seeding”
 
-## HTTP API
-
-User-defined http routes are defined in the `convex/router.ts` file. We split these routes into a separate file from `convex/http.ts` to allow us to prevent the LLM from modifying the authentication routes.
+Notes
+- Keep .env.local out of git. Use VITE_CONVEX_URL and Convex deploy vars locally.
