@@ -6,7 +6,7 @@ Scope
 
 Stack overview
 - Frontend: TanStack Start (SSR) with @tanstack/react-router and Vite.
-- Monorepo: Turborepo, configured via turbo.json.
+- Monorepo: Turborepo (npm workspaces: apps/*, packages/*), configured via turbo.json.
 - Backend: Convex functions in ./convex, served by convex dev and deployed via Convex Cloud.
 - Auth: @convex-dev/auth integrated in Convex and React client.
 - MCP: A Convex MCP server is available for tool-driven automation.
@@ -17,11 +17,12 @@ Prerequisites
 - Optional: Turbo CLI for orchestrated runs: npm i -g turbo
 
 Environment
-- Local variables live in .env.local (already present):
-  - CONVEX_DEPLOY_KEY=...
-  - CONVEX_DEPLOYMENT=dev:...
+- Local variables live in .env.local (not committed):
   - VITE_CONVEX_URL=https://<deployment>.convex.cloud
-- Some Convex files reference process.env.CONVEX_SITE_URL; set as needed for auth callbacks.
+  - CONVEX_DEPLOYMENT=dev:<name> (set automatically by convex dev --once)
+  - CONVEX_DEPLOY_KEY=... (only for deploy)
+  - ZEROENTROPY_API_KEY=... (optional: better embeddings/reranker; otherwise falls back)
+- Some Convex files reference process.env.CONVEX_SITE_URL; set for auth callbacks if needed.
 
 Install
 - From repo root:
@@ -29,12 +30,12 @@ Install
 
 Run (developer mode)
 - Simple: npm run dev
-  - Starts Vite dev server (TanStack Start) and Convex dev concurrently.
+  - Starts Vite dev server + Convex dev with PnP disabled (works in Yarn PnP environments).
 - Individually:
   - Frontend: npm run dev:frontend (Vite + TanStack Start)
-  - Backend: npm run dev:backend (convex dev)
+  - Backend: npm run dev:backend:nopnp (convex dev with PnP disabled)
 - With Turborepo (optional):
-  - npx turbo run dev
+  - npm run dev:turbo (turbo run dev --parallel)
 
 Build
 - Frontend build: npm run build (Vite build)
@@ -44,11 +45,14 @@ Convex notes
 - Add queries/mutations in ./convex/*.ts using query(...) and mutation(...).
 - Client imports use api from convex/_generated/api in the frontend.
 - Regenerate types after changes: convex dev --once (or keep convex dev running).
+- If you must run Convex manually in a PnP environment, set:
+  - PNP_DISABLE=1 YARN_ENABLE_PNP=0 YARN_NODE_LINKER=node-modules npx convex dev --once
 
 TanStack Start notes
 - App lives under apps/web/app with file-based routes in app/routes.
 - Router is configured in apps/web/app/router.tsx. Add new routes using createFileRoute.
 - SSR entrypoints: apps/web/app/server.tsx and apps/web/app/client.tsx.
+- apps/web/package.json exists to let Turbo discover the web app; root scripts delegate dev/build.
 
 MCP integration
 - Project-level MCP config exists at ./.mcp.json (gitignored). It starts the Convex MCP server with the project’s deployment/env.
@@ -84,8 +88,39 @@ Common issues & fixes
 - MCP server won’t start: ensure CONVEX_DEPLOYMENT_URL and CONVEX_DEPLOY_KEY are set in the environment that launches the MCP server.
 
 Deployment (overview)
-- Convex: convex deploy (requires proper CONVEX_DEPLOY_KEY).
+- Convex: convex deploy (requires proper CONVEX_DEPLOY_KEY). Prefer running deploy outside Yarn PnP envs.
 - Frontend: build artifacts via Vite; deploy per your host’s SSR guide (TanStack Start + Node adapter).
+
+Workspaces & Turbo
+- Workspaces: ["apps/*", "packages/*"]
+- Useful scripts:
+  - Root dev (default): npm run dev (Vite + Convex, PnP disabled)
+  - Turbo dev: npm run dev:turbo (turbo run dev --parallel)
+  - Turbo build: npm run build:turbo
+  - Turbo lint: npm run lint:turbo
+  - Turbo type-check: npm run type-check
+
+Package manager conventions
+- Use npm in this repo. .npmrc is present to enforce npm usage.
+- .yarnrc.yml sets nodeLinker: node-modules to avoid Yarn Plug’n’Play.
+
+Seeding & demo
+- UI seeding route: /admin/seed-demo seeds a Sonora screw manufacturer + 3 screw products and builds chunks.
+- Script alternative: node scripts/seed-demo.mjs (requires VITE_CONVEX_URL or NEXT_PUBLIC_CONVEX_URL).
+
+Eval loop
+- Action: search.runSearchEvals accepts a dataset (products/suppliers with relevantIds) and returns per-query metrics + summary.
+- Tools: search-evals/to-csv.mjs converts results JSON to CSV; a CI smoke workflow validates tooling.
+
+Search pipeline (Phases 3–5)
+- Chunk-based retrieval over searchChunks with cosine; prefilter via search index and metadata.
+- Parent aggregation via max-chunk similarity per parent; optional reranker with timeout + fallback.
+- Hybrid fusion uses weights + trust boosts from searchSettings.
+
+Common issues & fixes
+- Convex codegen missing: run convex dev --once (or keep dev running).
+- PnP-related import failures (convex/*): use npm run dev or backend:nopnp script, or set the PnP-disabling env vars above.
+- Routes not discovered: ensure files live under apps/web/app/routes and use createFileRoute.
 
 Search System
 - Overview
