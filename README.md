@@ -15,6 +15,12 @@ Dev
 - npm run dev (starts Vite + Convex with PnP disabled)
 - If you prefer to run Convex once: npx convex dev --once
 
+Turbo (optional)
+- Orchestrate workspace dev across apps/* and packages/* with Turborepo:
+  - npm run dev:turbo
+  - This runs “dev” in parallel in relevant workspaces and uses the root scripts (Vite + Convex no‑PnP).
+  - You don’t need a global turbo install; it’s included as a devDependency.
+
 Seeding
 - Open /admin/seed-demo and click “Run Seeding”
 
