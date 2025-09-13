@@ -26,3 +26,8 @@ Seeding
 
 Notes
 - Keep .env.local out of git. Use VITE_CONVEX_URL and Convex deploy vars locally.
+
+ZeroEntropy (optional)
+- Server‑side only; set `ZEROENTROPY_API_KEY` in .env.local to enable real embeddings/reranker.
+- Without a key, the app falls back to lightweight embeddings and runs without rerank.
+- Enable/adjust reranking and fusion in `/admin/search-settings`.

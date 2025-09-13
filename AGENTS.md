@@ -134,14 +134,49 @@ Search System
   - Shared package products: legacy index `search_products` on `name` (used by legacy UI only). New UI should call root queries above.
   - Suppliers: `suppliers.searchSuppliers` uses field filters (country/state/verification/badges/languages/certifications/minResponseRate). No search index is required yet; add one if full‑text over companyName is needed.
 
-- Semantic search (scaffold)
-  - Data model: `searchEmbeddings` table with `(entityType, entityId, embedding[float64], language, updatedAt)`.
-  - API: `search.upsertProductEmbedding` (builds a placeholder vector) and `search.semanticSearchProducts` (token‑overlap scoring).
-  - ZeroEntropy: listed in dependencies but not integrated yet. When wiring:
-    - Do not import ZeroEntropy in the browser; compute embeddings server‑side (Convex functions) to avoid key exposure.
-    - Replace the placeholder embedding generator in `search.upsertProductEmbedding` with ZeroEntropy embedding calls; persist vectors in `searchEmbeddings`.
-    - Implement a semantic retrieval function (e.g., cosine/ANN) and fuse with keyword/filters (BM25+vector hybrid if desired).
-    - Add background jobs/hooks to upsert embeddings on product create/update; expose a reindex admin function.
+ZeroEntropy Integration (optional)
+- Overview
+  - The code integrates ZeroEntropy for embeddings and reranking on the server only (Convex actions/queries).
+  - If ZEROENTROPY_API_KEY is not set or the SDK isn’t available, the system falls back to lightweight token‑hash embeddings and skips reranking.
+- Embeddings
+  - Location: `convex/search.ts` → `generateEmbedding`.
+  - Behavior: Attempts `import("zeroentropy")` and calls `ze.embed({ apiKey, input })`; otherwise returns a 32‑dim token‑hash vector.
+  - Storage: (legacy) document‑level in `searchEmbeddings`; primary path uses chunk‑level embeddings in `searchChunks` for retrieval.
+  - Reindex jobs:
+    - Products: `search.reindexAllProductChunks` (chunk + embed per product)
+    - Suppliers: `search.reindexAllSupplierChunks`
+  - Hooks: product/supplier upserts call `upsert*Chunks` to keep chunks fresh.
+- Chunking
+  - Location: `convex/search.ts` → `chunkText`. External chunker is disabled by default for reliability; a sentence‑grouping fallback is used.
+  - Each chunk is embedded via `generateEmbedding` and stored in `searchChunks` with parent ID and language.
+- Reranker
+  - Location: `convex/search.ts` → `rerankWithTimeout`.
+  - Behavior: Tries `ze.rerank({ apiKey, query, texts })`, otherwise `crossEncode`, with a per‑call timeout; results are normalized to [0,1] and blended.
+  - Applied to top‑K candidates in `hybridSearchProducts` and `hybridSearchSuppliers` when enabled.
+- Configuration
+  - Env var (server‑side only): `ZEROENTROPY_API_KEY`
+  - Tuning via `searchSettings` (Convex table; admin page at `/admin/search-settings`):
+    - `rerankEnabled` (bool, default false)
+    - `rerankTopK` (default 75)
+    - `rerankTimeoutMs` (default 1200)
+    - `rerankWeight` (default 0.5)
+    - Fusion weights: `hybridKwWeight`, `hybridSemWeight` (default 0.5/0.5)
+    - Trust boosts: `boostVerified`, `boostGoldVerified`, `boostTradeAssurance`, `boostServiceRatingMultiplier`, `boostResponseRateMultiplier`
+- Runtime toggles & admin
+  - Update settings via `/admin/search-settings` or programmatically through `search.updateSearchSettings`.
+  - Default limits come from `searchSettings.defaultLimit`.
+- Ops guidance
+  - Keep API keys out of the browser; all calls are server‑side in Convex.
+  - Start with `rerankEnabled=false` and verify quality using the eval harness before enabling.
+  - Candidate sizes: vector top‑N 200–300, rerank top‑K 50–100 are typical; adjust based on latency and cost.
+  - Timeout protects UX (1.2s default); reranker gracefully skips on failure.
+- Observability & evaluation
+  - Use `search.runSearchEvals` (Convex action) with a small gold set; compare keyword vs dense vs hybrid vs hybrid+rerank.
+  - Convert results to CSV with `node search-evals/to-csv.mjs <results.json>`.
+- Troubleshooting
+  - No improvement after enabling rerank: confirm `ZEROENTROPY_API_KEY` and check server logs/timeouts.
+  - High latency: reduce `rerankTopK` and/or increase `rerankTimeoutMs` conservatively; verify candidate pool.
+  - Cost control: disable rerank during peak hours or cap rerank frequency per query.
 
 - Filters & pagination rules
   - Paged endpoints must keep Convex paginate shape: `{ page, isDone, continueCursor }`.
