@@ -1,0 +1,11 @@
+{
+  "name": "@alibaba-clone/ui",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./components/*": "./src/components/*",
+    "./*": "./src/*"
+  }
+}
+
