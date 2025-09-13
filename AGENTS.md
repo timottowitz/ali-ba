@@ -87,6 +87,34 @@ Common issues & fixes
 - TanStack Start routes not discovered: ensure file lives under apps/web/app/routes and uses createFileRoute.
 - MCP server won’t start: ensure CONVEX_DEPLOYMENT_URL and CONVEX_DEPLOY_KEY are set in the environment that launches the MCP server.
 
+Best Practices (Convex + TanStack Start)
+- Secrets & environment
+  - Never expose server secrets to the browser. Keep `ZEROENTROPY_API_KEY`, deploy keys, and other credentials server‑side. Use Convex env vars for deployed secrets and `.env.local` (gitignored) for local.
+  - Vite client env vars must be prefixed with `VITE_`. Do not access plain `process.env` in client code.
+- Convex function design
+  - Use `query` for reads, `mutation` for writes, `action` for external network I/O/long‑running work.
+  - Prefer indexed filters: `.withIndex(...)`, `.withSearchIndex(...)`. Avoid full table scans; paginate with `.paginate({ numItems, cursor })`.
+  - Use search indexes for keyword search and store metadata denorms to enable indexed prefilters.
+  - Keep business logic in Convex functions; return only the data the UI needs to render.
+  - Use `storage.generateUploadUrl()` for uploads; store only storage IDs in tables.
+  - Avoid mixing query builder types in a single variable (QueryInitializer/OrderedQuery). Build branches then paginate; sort in memory if necessary.
+- Data modeling
+  - Prefer narrow, well‑indexed tables. Add `.index(...)`/`.searchIndex(...)` for frequent filters.
+  - Derive and denormalize fields needed for ranking/sorting (e.g., supplier trust flags on products).
+  - Use chunked text passages for semantic retrieval; keep chunk size consistent (e.g., ~1.2k chars) and language field explicit.
+- Performance
+  - Pre‑filter candidates with keyword and metadata; use cosine only on a bounded set (e.g., 200–300 chunks/parents).
+  - Cap rerank `topK` and set timeouts; provide graceful fallback to hybrid ranking.
+  - Batch reindex work (e.g., 100–200 per page) and run as needed.
+- TanStack Start (Vite)
+  - Keep routes under `apps/web/app/routes` with `createFileRoute`. Avoid importing server‑only modules into client routes.
+  - Use small, testable UI components in `packages/ui`. Keep client‑only imports guarded (e.g., feature flags) when SSR is active.
+  - Use strict TypeScript configs and rely on DTs from `convex/_generated` in UI.
+- Monorepo & tooling
+  - Use npm workspaces and Turbo scripts to orchestrate tasks; keep dependency versions consistent across workspaces.
+  - Default `npm run dev` starts Convex with PnP disabled to avoid esbuild import issues under Yarn PnP.
+  - Commit `package-lock.json` and avoid switching package managers mid‑stream.
+
 Deployment (overview)
 - Convex: convex deploy (requires proper CONVEX_DEPLOY_KEY). Prefer running deploy outside Yarn PnP envs.
 - Frontend: build artifacts via Vite; deploy per your host’s SSR guide (TanStack Start + Node adapter).
