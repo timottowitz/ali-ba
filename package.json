@@ -7,6 +7,8 @@
     "dev": "npm-run-all --parallel dev:frontend dev:backend",
     "dev:frontend": "vite --open",
     "dev:backend": "convex dev",
+    "dev:backend:nopnp": "NODE_OPTIONS= PNP_DISABLE=1 YARN_ENABLE_PNP=0 YARN_NODE_LINKER=node-modules convex dev",
+    "dev:nopnp": "npm-run-all --parallel dev:frontend dev:backend:nopnp",
     "build": "vite build",
     "lint": "tsc -p convex -noEmit --pretty false && tsc -p . -noEmit --pretty false && convex dev --once && vite build",
     "eval:validate": "node search-evals/to-csv.mjs search-evals/sample-output.json > /dev/null || true",
