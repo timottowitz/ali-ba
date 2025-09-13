@@ -1,0 +1,13 @@
+{
+  "name": "@alibaba-clone/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "echo \"Use root dev: npm run dev\"",
+    "build": "echo \"Build handled at root: npm run build\"",
+    "lint": "echo \"Lint handled at root: npm run lint\"",
+    "type-check": "echo \"Type-check handled at root: npm run type-check\""
+  }
+}
+
