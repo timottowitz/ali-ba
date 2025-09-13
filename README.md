@@ -1,5 +1,4 @@
-# ali-ba — Alibaba.com Clone with Convex Backend
-
+# ali-ba — 
 This project implements a product/supplier marketplace with Convex backend and Vite/TanStack frontend.
 
 Highlights
